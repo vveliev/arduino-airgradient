@@ -2,6 +2,10 @@
 CMakeListsPrivate.txt
 cmake-build-*/ 
 
+#ignore idea settings
+.idea
+.vscode
+
 # Default ignored files
 /shelf/
 /workspace.xml
