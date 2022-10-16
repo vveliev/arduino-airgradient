@@ -21,18 +21,20 @@ MIT License
 */
 
 #include <AirGradient.h>
-AirGradient ag = AirGradient();
 
-void setup(){
-  Serial.begin(9600);
-  ag.CO2_Init();
+auto metrics = std::make_shared<MetricGatherer>();
+
+void setup() {
+    Serial.begin(9600);
+    metrics->addSensor(std::make_unique<SensairS8Sensor>());
+    metrics->begin();
 }
 
-void loop(){
+void loop() {
+    auto data = metrics->getData();
+    auto co2 = data.GAS_DATA.CO2;
+    Serial.print("C02: ");
+    Serial.println(co2);
 
-int CO2 = ag.getCO2_Raw();
-Serial.print("C02: ");
-Serial.println(ag.getCO2());
-
-delay(5000);
+    delay(5000);
 }

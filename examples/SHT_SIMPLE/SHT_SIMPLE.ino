@@ -21,25 +21,29 @@ MIT License
 */
 
 #include <AirGradient.h>
-AirGradient ag = AirGradient();
 
-void setup(){
-  Serial.begin(9600);
-  ag.TMP_RH_Init(0x44); //check for SHT sensor with address 0x44
+auto metrics = std::make_shared<MetricGatherer>();
+
+void setup() {
+    Serial.begin(9600);
+    metrics->addSensor(std::make_unique<SHTXSensor>());
+
+    metrics->begin();
 }
 
-void loop(){
 
-  TMP_RH result = ag.periodicFetchData();
+void loop() {
+    auto data = metrics->getData();
 
-  Serial.print("Relative Humidity in %: ");
-  Serial.println(result.rh);
 
-  Serial.print(" Temperature in Celcius: ");
-  Serial.println(result.t);
+    Serial.print("Relative Humidity in %: ");
+    Serial.println(data.HUM);
 
-  Serial.print(" Temperature in Fahrenheit: ");
-  Serial.println((result.t * 9 / 5) + 32);
+    Serial.print(" Temperature in Celcius: ");
+    Serial.println(data.TMP);
 
-  delay(5000);
+    Serial.print(" Temperature in Fahrenheit: ");
+    Serial.println((DATA.TMP * 1.8) + 32);
+
+    delay(5000);
 }
