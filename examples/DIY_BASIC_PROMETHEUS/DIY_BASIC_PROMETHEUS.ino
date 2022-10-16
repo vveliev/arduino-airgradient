@@ -10,6 +10,10 @@
 #include <Wire.h>
 #include "SSD1306Wire.h"
 
+
+using namespace AirGradient;
+
+
 // Config ----------------------------------------------------------------------
 
 // Optional.
@@ -24,7 +28,7 @@ const char temp_display = 'C';
 // #define SET_CO2_S8
 #define SET_CO2_MH_Z19
 // #define SET_SHT
-// #define 
+// #define SET_SGP30
 //#define SET_DISPLAY
 
 
@@ -43,9 +47,10 @@ IPAddress subnet(255, 255, 255, 0);
 
 
 #ifdef SET_DISPLAY
+SSD1306Wire display(0x3c, SDA, SCL);
+
 // The frequency of measurement updates.
-const int updateFrequency = 5000;
-const int displayTime = 5000;
+const uint16_t screenUpdateFrequencyMs = 5000;
 #endif // SET_DISPLAY
 
 // Config End ------------------------------------------------------------------
@@ -53,6 +58,17 @@ const int displayTime = 5000;
 #define ERROR_PMS 0x01
 #define ERROR_SHT 0x02
 #define ERROR_CO2 0x04
+
+
+auto metrics = std::make_shared<MetricGatherer>();
+
+uint8_t counter = 0;
+
+auto metrics = std::make_shared<MetricGatherer>();
+// auto aqiCalculator = std::make_unique<AQICalculator>(metrics);
+Ticker updateScreenTicker;
+Ticker sendPayloadTicker;
+
 
 AirGradient ag = AirGradient();
 
@@ -75,19 +91,48 @@ void setup() {
   display.init();
   display.flipScreenVertically();
   showTextRectangle("Init", String(ESP.getChipId(), HEX), true);
-#endif // SET_DISPLAY
+#endif 
 #ifdef SET_PMS
-  ag.PMS_Init();
+  metrics->addSensor(std::make_unique<PMSXSensor>());
 #endif 
 #ifdef SET_CO2_S8
-  ag.CO2_Init();
-#endif // SET_CO2_S8
+  metrics->addSensor(std::make_unique<SensairS8Sensor>());
+#endif
 #ifdef SET_CO2_MH_Z19
-  ag.MHZ19_Init(19);
-#endif // SET_CO2_MH_Z19
+  metrics->addSensor(std::make_unique<MHZ19Sensor>());
+#endif 
 #ifdef SET_SHT
-  ag.TMP_RH_Init(0x44);
-#endif // SET_SHT
+  metrics->addSensor(std::make_unique<SHTXSensor>());
+#endif 
+#ifdef SET_SGP30
+  metrics->addSensor(std::make_unique<SGP30Sensor>());
+#endif 
+
+  connectToWifi();
+
+  metrics->begin();
+#ifdef SET_DISPLAY 
+  aqiCalculator->begin();
+#endif
+  updateScreenTicker.attach_ms_scheduled(screenUpdateFrequencyMs, updateScreen);
+
+  sendPayloadTicker.attach_scheduled(20, sendPayload);
+    
+#ifdef SET_DISPLAY
+  showTextRectangle("Listening To", WiFi.localIP().toString() + ":" + String(port), true);
+#endif // SET_DISPLAY
+}
+
+void loop() {
+  server.handleClient();
+#ifdef SET_DISPLAY
+  updateScreen(millis());
+#endif // SET_DISPLAY
+}
+
+
+// Wifi Manager
+void connectToWifi() {
 
   // Set static IP address if configured.
 #ifdef staticip
@@ -114,34 +159,8 @@ void setup() {
 #ifdef SET_DISPLAY
     showTextRectangle("Trying to", "connect...", true);
 #endif // SET_DISPLAY
-    Serial.print(".");
-  }
-
-  Serial.print("\nConnected to ");
-  Serial.println(ssid);
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-  Serial.print("MAC address: ");
-  Serial.println(WiFi.macAddress());
-  Serial.print("Hostname: ");
-  Serial.println(WiFi.hostname());
-  server.on("/", HandleRoot);
-  server.on("/metrics", HandleRoot);
-  server.onNotFound(HandleNotFound);
-
-  server.begin();
-  Serial.println("HTTP server started at ip " + WiFi.localIP().toString() + ":" + String(port));
-#ifdef SET_DISPLAY
-  showTextRectangle("Listening To", WiFi.localIP().toString() + ":" + String(port), true);
-#endif // SET_DISPLAY
 }
 
-void loop() {
-  server.handleClient();
-#ifdef SET_DISPLAY
-  updateScreen(millis());
-#endif // SET_DISPLAY
-}
 
 uint8_t update() {
   uint8_t result = 0;
