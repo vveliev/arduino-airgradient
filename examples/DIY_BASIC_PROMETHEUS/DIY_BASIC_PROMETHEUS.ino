@@ -20,8 +20,11 @@ const char temp_display = 'C';
 
 // Hardware options for AirGradient DIY sensor.
 #define SET_PMS
-#define SET_CO2_S8
-#define SET_SHT
+// Pick One CO2 sensor
+// #define SET_CO2_S8
+#define SET_CO2_MH_Z19
+// #define SET_SHT
+// #define 
 //#define SET_DISPLAY
 
 
@@ -80,7 +83,7 @@ void setup() {
   ag.CO2_Init();
 #endif // SET_CO2_S8
 #ifdef SET_CO2_MH_Z19
-  ag.MHZ19_Init();
+  ag.MHZ19_Init(19);
 #endif // SET_CO2_MH_Z19
 #ifdef SET_SHT
   ag.TMP_RH_Init(0x44);
@@ -218,6 +221,18 @@ String GenerateMetrics() {
     message += "\n";
   }
 #endif // SET_CO2_S8
+
+#ifdef SET_CO2_MH_Z19
+  if(!(error & ERROR_CO2))
+  {
+    message += "# HELP rco2 CO2 value, in ppm\n";
+    message += "# TYPE rco2 gauge\n";
+    message += "rco2";
+    message += idString;
+    message += String(value_co2);
+    message += "\n";
+  }
+#endif // SET_CO2_MH_Z19
 
 #ifdef SET_SHT
   if(!(error & ERROR_SHT))
